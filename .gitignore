@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+logs.txt
+.env
+.env.secrets
+.env.secrets.*
+!.env.secrets.example
+.comfy-control-downloads/

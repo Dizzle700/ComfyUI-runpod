@@ -1,0 +1,329 @@
+{
+  "51": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "56",
+        0
+      ],
+      "text": [
+        "70",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "CLIPTextEncode"
+    }
+  },
+  "52": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "EmptyLatentImage"
+    }
+  },
+  "53": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "66",
+        0
+      ],
+      "positive": [
+        "51",
+        0
+      ],
+      "negative": [
+        "58",
+        0
+      ],
+      "latent_image": [
+        "52",
+        0
+      ],
+      "seed": 735915477938686,
+      "steps": 8,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "54": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "53",
+        0
+      ],
+      "vae": [
+        "57",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEDecode"
+    }
+  },
+  "55": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "krea2_turbo_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "UNETLoader",
+      "required_models": [
+        {
+          "name": "krea2_turbo_fp8_scaled.safetensors",
+          "directory": "diffusion_models",
+          "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+          "input_key": "unet_name"
+        }
+      ]
+    }
+  },
+  "56": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+      "type": "krea2",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "CLIPLoader",
+      "required_models": [
+        {
+          "name": "qwen3vl_4b_fp8_scaled.safetensors",
+          "directory": "text_encoders",
+          "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+          "input_key": "clip_name"
+        }
+      ]
+    }
+  },
+  "57": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "_meta": {
+      "title": "VAELoader",
+      "required_models": [
+        {
+          "name": "qwen_image_vae.safetensors",
+          "directory": "vae",
+          "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors",
+          "input_key": "vae_name"
+        }
+      ]
+    }
+  },
+  "58": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "51",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "ConditioningZeroOut"
+    }
+  },
+  "59": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "55",
+        0
+      ],
+      "lora_name": "krea2_darkbrush.safetensors",
+      "strength_model": 0.8
+    },
+    "_meta": {
+      "title": "LoraLoaderModelOnly",
+      "required_models": [
+        {
+          "name": "krea2_darkbrush.safetensors",
+          "directory": "loras",
+          "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_darkbrush.safetensors",
+          "input_key": "lora_name"
+        }
+      ]
+    }
+  },
+  "60": {
+    "class_type": "TextGenerate",
+    "inputs": {
+      "clip": [
+        "56",
+        0
+      ],
+      "image": "",
+      "video": 512,
+      "audio": "on",
+      "prompt": [
+        "61",
+        0
+      ],
+      "max_length": 64,
+      "sampling_mode": 0.95,
+      "sampling_mode.temperature": 0.05,
+      "sampling_mode.top_k": 1.05,
+      "sampling_mode.top_p": 0,
+      "sampling_mode.min_p": 0,
+      "sampling_mode.repetition_penalty": false,
+      "sampling_mode.seed": true
+    },
+    "_meta": {
+      "title": "TextGenerate"
+    }
+  },
+  "61": {
+    "class_type": "StringConcatenate",
+    "inputs": {
+      "string_a": [
+        "62",
+        0
+      ],
+      "string_b": [
+        "63",
+        0
+      ],
+      "delimiter": ""
+    },
+    "_meta": {
+      "title": "StringConcatenate"
+    }
+  },
+  "62": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": "You are an expert prompt engineer for text-to-image models. Your task is to expand the user's prompt into a highly effective image-generation prompt.\n\nThink step by step about the request before writing the answer:\n- What is the subject and mood?\n- What visual styles, mediums, and lighting options would fit? Consider two or three alternatives and pick the one that best serves the caption.\n- What composition, framing, and grounded details will help the text-to-image model?\n\nThen output a single expanded prompt paragraph.\n\nFollow these rules strictly:\n1. **Faithfulness First:** Preserve all original subjects, actions, colors, and spatial relationships. Do not add new objects, props, characters, or animals unless the user clearly implies them.\n2. **Practical T2I Structure:** Write a prompt that a text-to-image model can parse cleanly. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout.\n3. **Style Planning Stays Internal:** Use your internal reasoning to choose style, medium, framing, and lighting. Do not emit planning tags or wrappers in the visible answer body.\n4. **Text Rendering:** If the user requests visible text, quotes, labels, or typography, specify the exact text clearly and wrap requested words in quotes.\n5. **Avoid Over-Specification:** Do not invent highly specific clothing, colors, materials, or scene details unless the input supports them.\n6. **Structure:** Write one cohesive paragraph after the thinking block. No bullets, JSON, or markdown.\n7. **Respect Existing Detail:** If the user's prompt is already detailed, lightly polish and finalize rather than heavily expanding — preserve their phrasing and direction.\n8. **Respect the Human Form:** Treat depictions of people with dignity. Assume clothing covers genitals and intimate anatomy.\n9. **Preserve User Medium:** When the user explicitly requests a medium (e.g. \"photo of\", \"photograph of\", \"illustration of\", \"painting of\", \"sketch of\", \"3D render of\"), honor it. Do not pivot to a different medium to avoid difficulty — match the user's stated intent.\n\nUser's Input:\n\n"
+    },
+    "_meta": {
+      "title": "Text String (System Prompt)"
+    }
+  },
+  "63": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": ""
+    },
+    "_meta": {
+      "title": "Text String (User Prompt)"
+    }
+  },
+  "64": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": [
+        "65",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "PreviewAny"
+    }
+  },
+  "65": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "63",
+        0
+      ],
+      "on_true": [
+        "60",
+        0
+      ],
+      "switch": [
+        "68",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "ComfySwitchNode"
+    }
+  },
+  "66": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "55",
+        0
+      ],
+      "on_true": [
+        "59",
+        0
+      ],
+      "switch": [
+        "67",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Switch (Model)"
+    }
+  },
+  "67": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": false
+    },
+    "_meta": {
+      "title": "Boolean (Enable LoRA?)"
+    }
+  },
+  "68": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": true
+    },
+    "_meta": {
+      "title": "Boolean (Refine Prompt?)"
+    }
+  },
+  "69": {
+    "class_type": "StringConcatenate",
+    "inputs": {
+      "string_a": [
+        "64",
+        0
+      ],
+      "string_b": "muted minimalist sketch style",
+      "delimiter": ", "
+    },
+    "_meta": {
+      "title": "Concatenate Text (LoRA Trigger Word)"
+    }
+  },
+  "70": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "64",
+        0
+      ],
+      "on_true": [
+        "69",
+        0
+      ],
+      "switch": [
+        "67",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "ComfySwitchNode"
+    }
+  }
+}

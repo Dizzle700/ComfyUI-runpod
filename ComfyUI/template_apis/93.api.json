@@ -1,0 +1,316 @@
+{
+  "245": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "CLIPLoader",
+      "required_models": [
+        {
+          "name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+          "directory": "text_encoders",
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+          "input_key": "clip_name"
+        },
+        {
+          "name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+          "directory": "text_encoders",
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+          "input_key": "clip_name"
+        }
+      ]
+    }
+  },
+  "246": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "_meta": {
+      "title": "VAELoader",
+      "required_models": [
+        {
+          "name": "qwen_image_vae.safetensors",
+          "directory": "vae",
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors",
+          "input_key": "vae_name"
+        },
+        {
+          "name": "qwen_image_vae.safetensors",
+          "directory": "vae",
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors",
+          "input_key": "vae_name"
+        }
+      ]
+    }
+  },
+  "247": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": [
+        "260",
+        0
+      ],
+      "shift": 3.1000000000000005
+    },
+    "_meta": {
+      "title": "ModelSamplingAuraFlow"
+    }
+  },
+  "248": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_2512_fp8_e4m3fn.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "UNETLoader",
+      "required_models": [
+        {
+          "name": "qwen_image_2512_fp8_e4m3fn.safetensors",
+          "directory": "diffusion_models",
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors",
+          "input_key": "unet_name"
+        },
+        {
+          "name": "qwen_image_2512_fp8_e4m3fn.safetensors",
+          "directory": "diffusion_models",
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors",
+          "input_key": "unet_name"
+        }
+      ]
+    }
+  },
+  "249": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "245",
+        0
+      ],
+      "text": ""
+    },
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "250": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "245",
+        0
+      ],
+      "text": "低分辨率，低画质，肢体畸形，手指畸形，画面过饱和，蜡像感，人脸无细节，过度光滑，画面具有AI感。构图混乱。文字模糊，扭曲"
+    },
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "251": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "253",
+        0
+      ],
+      "vae": [
+        "246",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEDecode"
+    }
+  },
+  "252": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "width": 1328,
+      "height": 1328,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
+  },
+  "253": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "247",
+        0
+      ],
+      "positive": [
+        "249",
+        0
+      ],
+      "negative": [
+        "250",
+        0
+      ],
+      "latent_image": [
+        "252",
+        0
+      ],
+      "seed": 464857551335368,
+      "steps": [
+        "261",
+        0
+      ],
+      "cfg": [
+        "262",
+        0
+      ],
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "254": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 50
+    },
+    "_meta": {
+      "title": "Int (Steps)"
+    }
+  },
+  "255": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 4
+    },
+    "_meta": {
+      "title": "Float (CFG)"
+    }
+  },
+  "256": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": false
+    },
+    "_meta": {
+      "title": "Enable 4 Steps LoRA?"
+    }
+  },
+  "257": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 4
+    },
+    "_meta": {
+      "title": "Int (Steps)"
+    }
+  },
+  "258": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 1
+    },
+    "_meta": {
+      "title": "Float (CFG)"
+    }
+  },
+  "259": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "248",
+        0
+      ],
+      "lora_name": "Qwen-Image-2512-Lightning-4steps-V1.0-fp32.safetensors",
+      "strength_model": 1
+    },
+    "_meta": {
+      "title": "LoraLoaderModelOnly",
+      "required_models": [
+        {
+          "name": "Qwen-Image-2512-Lightning-4steps-V1.0-fp32.safetensors",
+          "directory": "loras",
+          "url": "https://huggingface.co/lightx2v/Qwen-Image-2512-Lightning/resolve/main/Qwen-Image-2512-Lightning-4steps-V1.0-fp32.safetensors",
+          "input_key": "lora_name"
+        }
+      ]
+    }
+  },
+  "260": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "248",
+        0
+      ],
+      "on_true": [
+        "259",
+        0
+      ],
+      "switch": [
+        "256",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Switch (model)"
+    }
+  },
+  "261": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "254",
+        0
+      ],
+      "on_true": [
+        "257",
+        0
+      ],
+      "switch": [
+        "256",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Switch (steps)"
+    }
+  },
+  "262": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "255",
+        0
+      ],
+      "on_true": [
+        "258",
+        0
+      ],
+      "switch": [
+        "256",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Switch (cfg)"
+    }
+  },
+  "save_image_0": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "251",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

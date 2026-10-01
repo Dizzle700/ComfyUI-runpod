@@ -1,0 +1,69 @@
+# Инструкция:
+# 1. Перед запуском убедитесь, что последние изменения запушены в репозиторий.
+# 2. Startup-скрипты хранятся в /workspace/runpod-scripts.
+#    Обычный старт использует сохранённые версии без git pull. Для обновления
+#    скриптов, ComfyUI и Manager задайте COMFY_UPDATE_ON_START=1 на один запуск.
+#    pip install пропускается только после проверки отметки установки и пакетов.
+#    --update обновляет ComfyUI/Manager; --reinstall принудительно запускает pip.
+#    Рекомендуемый образ для RTX 5090:
+#    runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404
+# 3. Не забудьте открыть HTTP Ports в настройках RunPod:
+#    - Port 7860 (для Панели Управления)
+#    - Port 8188 (для ComfyUI)
+# 4. ComfyUI запускается автоматически вместе с панелью. Чтобы отключить это,
+#    задайте переменную окружения AUTO_START_COMFY=0.
+# 5. До запуска создайте RunPod Secrets и свяжите их с Environment Variables:
+#
+#    Environment Variable    Значение из RunPod Secret
+#    PANEL_USER              {{ RUNPOD_SECRET_comfy_panel_user }}
+#    PANEL_PASS              {{ RUNPOD_SECRET_comfy_panel_password }}
+#    HF_TOKEN                {{ RUNPOD_SECRET_huggingface_token }}
+#    CIVITAI_API_TOKEN       {{ RUNPOD_SECRET_civitai_token }}       (опционально)
+#    NANO_BANANA_API_KEY     {{ RUNPOD_SECRET_nano_banana_api_key }} (опционально)
+#
+#    PANEL_USER и PANEL_PASS обязательны: панель с Terminal не запустится без них.
+#    Значения из RunPod Secrets не сохраняются на диске и не показываются в браузере.
+#
+#    Альтернатива для личного pod: скопируйте .env.secrets.example в .env.secrets,
+#    заполните значения и выполните chmod 600 .env.secrets. Этот файл игнорируется
+#    Git и сохраняется вместе с /workspace/runpod-scripts. RunPod Secrets имеют
+#    приоритет над значениями из файла. Путь можно изменить через COMFY_SECRET_FILE.
+# 6. Ускоренная загрузка Hugging Face через hf-xet включена автоматически:
+#    HF_XET_HIGH_PERFORMANCE=1. При необходимости ее можно отключить значением 0.
+# 7. Для загрузки моделей из TXT до запуска панели добавьте один или несколько флагов:
+#    --models Krea
+#    --models Krea --models Ernie
+#    --models Krea,Ernie
+#    Название флага выбирает раздел #ИМЯ из KRea.txt; уже скачанные файлы пропускаются.
+#    Для любого шаблона из templates_models.db используйте --templates ID[,ID].
+#    API JSON экспортируется сразу, модели скачиваются отдельным процессом в фоне.
+#    Список ID: python3 runpod-scripts/comfy_template_startup.py list
+#    Лог: /workspace/ComfyUI/template-download.log
+#    Файлы API: /workspace/ComfyUI/template_apis/<ID>.api.json
+#    Панель: GET /template-apis и GET /template-apis/<ID>/api (Basic Auth PANEL_USER/PANEL_PASS).
+#    Параллельных загрузок по умолчанию 2; настройка COMFY_TEMPLATE_DOWNLOAD_WORKERS=1..4.
+# 8. Output ZIP создается в фоне в /workspace/.comfy-control-downloads.
+#    MP4/MKV/JPEG/PNG и другие уже сжатые файлы добавляются без повторного сжатия.
+#    Готовые файлы старше 24 часов удаляются при старте панели; срок можно изменить:
+#    COMFY_DOWNLOAD_TTL_HOURS=48
+
+
+
+# Обычный запуск без предзагрузки моделей:
+bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh'
+
+# Запуск с предзагрузкой только моделей из раздела #Krea:
+bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --models Krea'
+
+# Запуск с двумя пакетами: #Krea и #Ernie:
+bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --models Krea --models Ernie'
+
+# Пример: Text to Image Krea-2 Turbo + Qwen-Image 2512 + Qwen-Image.
+# ComfyUI и API стартуют без ожидания загрузки моделей.
+bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --templates 89,93,94'
+
+# Один запуск с обновлением всех трёх репозиториев и проверкой пакетов через pip:
+COMFY_UPDATE_ON_START=1 bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI.git runpod-scripts; else git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --templates 89,93,94'
+
+# Значение для отдельного поля HTTP Ports в шаблоне RunPod:
+7860,8188

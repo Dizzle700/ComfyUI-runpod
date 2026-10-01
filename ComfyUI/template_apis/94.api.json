@@ -1,0 +1,305 @@
+{
+  "39": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "_meta": {
+      "title": "VAELoader",
+      "required_models": [
+        {
+          "name": "qwen_image_vae.safetensors",
+          "directory": "vae",
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors",
+          "input_key": "vae_name"
+        }
+      ]
+    }
+  },
+  "38": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "CLIPLoader",
+      "required_models": [
+        {
+          "name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+          "directory": "text_encoders",
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+          "input_key": "clip_name"
+        }
+      ]
+    }
+  },
+  "58": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "width": 1328,
+      "height": 1328,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
+  },
+  "66": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": [
+        "78",
+        0
+      ],
+      "shift": 3.1000000000000005
+    },
+    "_meta": {
+      "title": "ModelSamplingAuraFlow"
+    }
+  },
+  "37": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_fp8_e4m3fn.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "UNETLoader",
+      "required_models": [
+        {
+          "name": "qwen_image_fp8_e4m3fn.safetensors",
+          "directory": "diffusion_models",
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_fp8_e4m3fn.safetensors",
+          "input_key": "unet_name"
+        }
+      ]
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "38",
+        0
+      ],
+      "text": ""
+    },
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "38",
+        0
+      ],
+      "text": ""
+    },
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEDecode"
+    }
+  },
+  "73": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "37",
+        0
+      ],
+      "lora_name": "Qwen-Image-Lightning-8steps-V1.0.safetensors",
+      "strength_model": 1
+    },
+    "_meta": {
+      "title": "LoraLoaderModelOnly",
+      "required_models": [
+        {
+          "name": "Qwen-Image-Lightning-8steps-V1.0.safetensors",
+          "directory": "loras",
+          "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V1.0.safetensors",
+          "input_key": "lora_name"
+        }
+      ]
+    }
+  },
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "66",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "58",
+        0
+      ],
+      "seed": 50347169638278,
+      "steps": [
+        "82",
+        0
+      ],
+      "cfg": [
+        "83",
+        0
+      ],
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "78": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "37",
+        0
+      ],
+      "on_true": [
+        "73",
+        0
+      ],
+      "switch": [
+        "86",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Switch (Model)"
+    }
+  },
+  "79": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 8
+    },
+    "_meta": {
+      "title": "Steps"
+    }
+  },
+  "81": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 1
+    },
+    "_meta": {
+      "title": "CFG"
+    }
+  },
+  "82": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "84",
+        0
+      ],
+      "on_true": [
+        "79",
+        0
+      ],
+      "switch": [
+        "86",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Switch (Steps)"
+    }
+  },
+  "83": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "85",
+        0
+      ],
+      "on_true": [
+        "81",
+        0
+      ],
+      "switch": [
+        "86",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Switch (CFG)"
+    }
+  },
+  "84": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 20
+    },
+    "_meta": {
+      "title": "Steps"
+    }
+  },
+  "85": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 4
+    },
+    "_meta": {
+      "title": "CFG"
+    }
+  },
+  "86": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": false
+    },
+    "_meta": {
+      "title": "Enable Lightning LoRA"
+    }
+  },
+  "87": {
+    "class_type": "MarkdownNote",
+    "inputs": {},
+    "_meta": {
+      "title": "MarkdownNote"
+    }
+  },
+  "save_image_0": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

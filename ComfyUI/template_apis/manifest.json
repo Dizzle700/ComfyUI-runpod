@@ -1,0 +1,38 @@
+[
+  {
+    "id": 89,
+    "name": "Text to Image (Krea-2 Turbo)",
+    "api_json": "/home/dizzle/Documents/Code_Runpod/ComfyUI-runpod/ComfyUI/template_apis/89.api.json",
+    "workflow_json": "/home/dizzle/Documents/Code_Runpod/ComfyUI-runpod/ComfyUI/template_apis/89.workflow.json",
+    "models": [
+      "models/diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+      "models/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+      "models/vae/qwen_image_vae.safetensors",
+      "models/loras/krea2_darkbrush.safetensors"
+    ]
+  },
+  {
+    "id": 93,
+    "name": "Text to Image (Qwen-Image 2512)",
+    "api_json": "/home/dizzle/Documents/Code_Runpod/ComfyUI-runpod/ComfyUI/template_apis/93.api.json",
+    "workflow_json": "/home/dizzle/Documents/Code_Runpod/ComfyUI-runpod/ComfyUI/template_apis/93.workflow.json",
+    "models": [
+      "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "models/vae/qwen_image_vae.safetensors",
+      "models/diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors",
+      "models/loras/Qwen-Image-2512-Lightning-4steps-V1.0-fp32.safetensors"
+    ]
+  },
+  {
+    "id": 94,
+    "name": "Text to Image (Qwen-Image)",
+    "api_json": "/home/dizzle/Documents/Code_Runpod/ComfyUI-runpod/ComfyUI/template_apis/94.api.json",
+    "workflow_json": "/home/dizzle/Documents/Code_Runpod/ComfyUI-runpod/ComfyUI/template_apis/94.workflow.json",
+    "models": [
+      "models/vae/qwen_image_vae.safetensors",
+      "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "models/diffusion_models/qwen_image_fp8_e4m3fn.safetensors",
+      "models/loras/Qwen-Image-Lightning-8steps-V1.0.safetensors"
+    ]
+  }
+]
