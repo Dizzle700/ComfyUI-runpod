@@ -63,6 +63,10 @@ add_template_ids() {
     done
 }
 
+# RunPod template environment variables use the same validation as CLI flags.
+[[ -z "${COMFY_MODEL_PACKAGES:-}" ]] || add_model_package "$COMFY_MODEL_PACKAGES"
+[[ -z "${COMFY_TEMPLATE_IDS:-}" ]] || add_template_ids "$COMFY_TEMPLATE_IDS"
+
 while (( $# > 0 )); do
     case "$1" in
         --models)

@@ -6,3 +6,4 @@ logs.txt
 .env.secrets.*
 !.env.secrets.example
 .comfy-control-downloads/
+.comfy-image-build/

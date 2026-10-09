@@ -3,6 +3,7 @@
 
 import argparse
 import concurrent.futures
+from contextlib import closing
 import json
 import os
 from pathlib import Path
@@ -30,7 +31,7 @@ def template_ids(raw):
 def load_templates(ids):
     if not DB_PATH.is_file():
         raise ValueError(f"База шаблонов не найдена: {DB_PATH}")
-    with sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True) as connection:
+    with closing(sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)) as connection:
         connection.row_factory = sqlite3.Row
         rows = connection.execute(
             f"SELECT id, name, api_json, workflow_json FROM templates "
@@ -62,13 +63,31 @@ def validate_model(row):
         raise ValueError(f"Недопустимый URL модели: {url!r}")
 
 
+def strip_ui_notes(api):
+    """Frontend note widgets cannot be executed by the ComfyUI prompt API."""
+    if not isinstance(api, dict):
+        raise ValueError('API JSON должен содержать объект узлов')
+    notes = {
+        key for key, node in api.items()
+        if isinstance(node, dict) and node.get('class_type') in {'Note', 'MarkdownNote'}
+    }
+    for key, node in api.items():
+        if key in notes or not isinstance(node, dict):
+            continue
+        for value in node.get('inputs', {}).values():
+            if (isinstance(value, list) and len(value) == 2
+                    and isinstance(value[0], str) and value[0] in notes):
+                raise ValueError(f'Узел {key} ссылается на заметку {value[0]} вместо исполняемого узла')
+    return {key: node for key, node in api.items() if key not in notes}
+
+
 def prepare(selected):
     EXPORT_DIR.mkdir(parents=True, exist_ok=True)
     manifest = []
     downloads = {}
     for template, models in selected:
         number = template["id"]
-        api = json.loads(template["api_json"])
+        api = strip_ui_notes(json.loads(template["api_json"]))
         api_file = EXPORT_DIR / f"{number}.api.json"
         api_file.write_text(json.dumps(api, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         workflow_file = None
@@ -124,7 +143,7 @@ def main():
     parser.add_argument("--workers", type=int, default=2)
     args = parser.parse_args()
     if args.action == "list":
-        with sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True) as connection:
+        with closing(sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)) as connection:
             for number, name, count in connection.execute(
                 "SELECT id, name, model_count FROM templates ORDER BY id"
             ):

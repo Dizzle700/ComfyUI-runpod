@@ -79,7 +79,7 @@ trap 'on_error "$LINENO"' ERR
 
 # Проверка окружения RunPod
 if [[ -d "/workspace" ]]; then
-    info "Обнаружено окружение RunPod. Установка будет выполнена в $COMFY_DIR (persistent storage)."
+    info "Каталог /workspace доступен. ComfyUI: $COMFY_DIR."
 else
     warn "Каталог /workspace не найден. Данные могут быть потеряны при остановке пода."
 fi
@@ -154,6 +154,22 @@ start_template_downloads() {
     info "Лог фоновой загрузки: $log_file (PID $!)"
 }
 
+PYTHON_EXE="${PYTHON_EXE:-python3}"
+SETUP_CACHE_HELPER="$SCRIPT_DIR/comfy_setup_cache.py"
+SETUP_STAMP="$COMFY_DIR/.runpod-setup.json"
+
+if [[ "${COMFY_PREBUILT:-0}" == 1 ]]; then
+    if [[ "$UPDATE_ON_START" == 1 || "$FORCE_INSTALL" == 1 ]]; then
+        error "В готовом образе версии закреплены. Для обновления соберите новый image."
+        exit 2
+    fi
+    if ! "$PYTHON_EXE" "$SETUP_CACHE_HELPER" check \
+        --comfy-dir "$COMFY_DIR" --script-dir "$SCRIPT_DIR"; then
+        error "Окружение готового образа изменено или повреждено. Пересоздайте контейнер из image."
+        exit 1
+    fi
+    info "Готовый Docker image: git pull и pip install при запуске не выполняются."
+else
 # Клонируем или обновляем ComfyUI
 if [[ ! -d "$COMFY_DIR/.git" ]]; then
     info "Клонируем репозиторий ComfyUI..."
@@ -234,6 +250,8 @@ if [[ "$INSTALL_DEPENDENCIES" == true ]]; then
     "$PYTHON_EXE" "$SETUP_CACHE_HELPER" save \
         --comfy-dir "$COMFY_DIR" --script-dir "$SCRIPT_DIR"
 fi
+
+fi # COMFY_PREBUILT
 
 # Копирование pisa_sr.pkl, если он лежит в папке со скриптом
 if [[ -f "$SCRIPT_DIR/pisa_sr.pkl" ]]; then

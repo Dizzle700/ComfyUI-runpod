@@ -50,20 +50,23 @@
 
 
 # Обычный запуск без предзагрузки моделей:
-bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh'
+bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI-runpod.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh'
 
 # Запуск с предзагрузкой только моделей из раздела #Krea:
-bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --models Krea'
+bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI-runpod.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --models Krea'
 
 # Запуск с двумя пакетами: #Krea и #Ernie:
-bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --models Krea --models Ernie'
+bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI-runpod.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --models Krea --models Ernie'
+
+# Рекомендуемый запуск Krea-2 Turbo: модели из SQLite скачиваются в фоне.
+bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI-runpod.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --templates 89'
 
 # Пример: Text to Image Krea-2 Turbo + Qwen-Image 2512 + Qwen-Image.
 # ComfyUI и API стартуют без ожидания загрузки моделей.
-bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --templates 89,93,94'
+bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI-runpod.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --templates 89,93,94'
 
 # Один запуск с обновлением всех трёх репозиториев и проверкой пакетов через pip:
-COMFY_UPDATE_ON_START=1 bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI.git runpod-scripts; else git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --templates 89,93,94'
+COMFY_UPDATE_ON_START=1 bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI-runpod.git runpod-scripts; else git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --templates 89,93,94'
 
 # Значение для отдельного поля HTTP Ports в шаблоне RunPod:
 7860,8188

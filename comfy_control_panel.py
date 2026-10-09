@@ -18,6 +18,7 @@ import base64
 import binascii
 from urllib.request import urlopen
 from collections import deque
+from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 import gradio as gr
 import psutil
@@ -404,6 +405,8 @@ def restart_comfy(args):
 
 def run_installation():
     global is_installing
+    if os.environ.get("COMFY_PREBUILT") == "1":
+        return "ComfyUI и зависимости установлены в image. Для обновления соберите новый образ и пересоздайте Pod."
     with install_lock:
         if is_installing:
             return "Установка уже запущена и выполняется в фоновом режиме!"
@@ -2021,7 +2024,17 @@ def run_workspace_command(path, command):
 
 # Отдельный загрузчик передает большие файлы маленькими запросами. Это обходит
 # разрывы соединения RunPod Proxy при обычной multipart-загрузке целого видео.
-panel_app = FastAPI()
+@asynccontextmanager
+async def panel_lifespan(app):
+    try:
+        yield
+    finally:
+        # Uvicorn handles SIGTERM; also stop ComfyUI's separate process group.
+        if comfy_process is not None:
+            stop_comfy()
+
+
+panel_app = FastAPI(lifespan=panel_lifespan)
 
 TEMPLATE_EXPORT_DIR = os.environ.get(
     "COMFY_TEMPLATE_EXPORT_DIR", os.path.join(COMFY_DIR, "template_apis")

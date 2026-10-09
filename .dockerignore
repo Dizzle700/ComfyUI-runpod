@@ -1,0 +1,17 @@
+# Allowlist: local secrets, downloaded weights, .git and caches never enter context.
+**
+!Dockerfile
+!requirements.txt
+!comfy_install_runpod.sh
+!runpod_startup.sh
+!comfy_setup_cache.py
+!comfy_control_panel.py
+!comfy_model_downloader.sh
+!comfy_template_startup.py
+!templates_models.db
+!KRea.txt
+!docker/
+!docker/**
+**/.env*
+**/__pycache__/
+**/*.pyc

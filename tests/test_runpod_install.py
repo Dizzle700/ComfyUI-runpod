@@ -130,6 +130,21 @@ class RunpodInstallTests(unittest.TestCase):
         self.assertEqual(sum(event.startswith("git-clone ") for event in events), 2)
         self.assertTrue(self.stamp.exists())
 
+    def test_prebuilt_start_never_uses_git_or_pip(self):
+        self.env['COMFY_PREBUILT'] = '1'
+        self.stamp.write_text('{}')
+        self.assertEqual(self.run_installer(), [])
+
+    def test_prebuilt_rejects_changed_environment_without_installing(self):
+        self.env['COMFY_PREBUILT'] = '1'
+        self.env['TEST_CACHE_MISS'] = '1'
+        self.assertEqual(self.run_installer(expect_success=False), [])
+
+    def test_prebuilt_update_requires_new_image(self):
+        self.env['COMFY_PREBUILT'] = '1'
+        self.stamp.write_text('{}')
+        self.assertEqual(self.run_installer('--update', expect_success=False), [])
+
 
 if __name__ == "__main__":
     unittest.main()
