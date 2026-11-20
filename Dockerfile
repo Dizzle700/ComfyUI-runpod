@@ -22,8 +22,8 @@ RUN bash /opt/image-build.sh "$COMFY_COMMIT" "$MANAGER_COMMIT"
 ARG SOURCE_REVISION=local
 LABEL org.opencontainers.image.source="https://github.com/Dizzle700/ComfyUI-runpod" \
       org.opencontainers.image.revision="${SOURCE_REVISION}"
-COPY runpod_startup.sh comfy_control_panel.py comfy_model_downloader.sh \
-     comfy_template_startup.py KRea.txt ./
+COPY runpod_startup.sh comfy_control_panel.py comfy_batch_engine.py \
+     comfy_model_downloader.sh comfy_template_startup.py KRea.txt ./
 COPY templates_models.db* faq/templates_models.db* ./
 COPY docker/ /opt/runpod-scripts/docker/
 RUN python3 -m compileall -q /opt/runpod-scripts || true

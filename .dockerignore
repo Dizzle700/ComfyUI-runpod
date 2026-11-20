@@ -6,6 +6,7 @@
 !runpod_startup.sh
 !comfy_setup_cache.py
 !comfy_control_panel.py
+!comfy_batch_engine.py
 !comfy_model_downloader.sh
 !comfy_template_startup.py
 !templates_models.db

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Развёртывание ComfyUI-runpod на RunPod — Инструкция</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-2: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #f97316;
+      --accent-soft: rgba(249, 115, 22, 0.14);
+      --green: #22c55e;
+      --green-soft: rgba(34, 197, 94, 0.14);
+      --blue: #38bdf8;
+      --blue-soft: rgba(56, 189, 248, 0.12);
+      --code-bg: #0f172a;
+      --code-hover: #172554;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 32px 18px 80px;
+      background: radial-gradient(circle at top, #172033 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      line-height: 1.65;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: linear-gradient(135deg, rgba(249, 115, 22, 0.14), rgba(56, 189, 248, 0.08));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 30px;
+      margin-bottom: 28px;
+    }
+
+    header h1 {
+      margin: 0 0 10px;
+      font-size: 1.9rem;
+      line-height: 1.25;
+      color: #f8fafc;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .hint-bar {
+      margin-top: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #bae6fd;
+      font-size: 0.88rem;
+    }
+
+    section {
+      background: rgba(17, 24, 39, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 26px 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 1.4rem;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    h3 {
+      margin: 22px 0 10px;
+      font-size: 1.08rem;
+      color: #cbd5e1;
+    }
+
+    .badge {
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-recommended {
+      background: var(--green-soft);
+      color: #86efac;
+      border: 1px solid rgba(34, 197, 94, 0.4);
+    }
+
+    .badge-alt {
+      background: var(--accent-soft);
+      color: #fdba74;
+      border: 1px solid rgba(249, 115, 22, 0.4);
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    ul, ol {
+      margin: 0 0 14px;
+      padding-left: 22px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    .callout {
+      padding: 14px 16px;
+      border-radius: 10px;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      color: #ffedd5;
+      margin: 14px 0;
+      font-size: 0.94rem;
+    }
+
+    .callout-tip {
+      border-left-color: var(--green);
+      background: var(--green-soft);
+      color: #dcfce7;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 18px;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      color: #94a3b8;
+      font-weight: 600;
+      background: rgba(30, 41, 59, 0.6);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Click-to-copy elements */
+    code, pre {
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      cursor: pointer;
+      transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.08s ease;
+    }
+
+    code {
+      background: var(--code-bg);
+      color: #7dd3fc;
+      padding: 2px 7px;
+      border-radius: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      font-size: 0.9em;
+      word-break: break-word;
+    }
+
+    code:hover {
+      background: var(--code-hover);
+      border-color: var(--blue);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18);
+    }
+
+    pre {
+      background: var(--code-bg);
+      color: #e2e8f0;
+      padding: 15px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      overflow-x: auto;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      margin: 10px 0 16px;
+      position: relative;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    pre:hover {
+      background: #13203d;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
+    }
+
+    pre:active, code:active {
+      transform: scale(0.995);
+    }
+
+    pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+      box-shadow: none;
+    }
+
+    pre code:hover {
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .copied-flash {
+      border-color: var(--green) !important;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.28) !important;
+    }
+
+    /* Floating toast */
+    #copy-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #16a34a;
+      color: #ffffff;
+      padding: 11px 18px;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 9999;
+    }
+
+    #copy-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 18px 12px 64px;
+      }
+      header, section {
+        padding: 18px 16px;
+      }
+      header h1 {
+        font-size: 1.45rem;
+      }
+      th, td {
+        padding: 9px 10px;
+        font-size: 0.88rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Развёртывание ComfyUI-runpod на RunPod</h1>
+      <p>Актуальная инструкция по запуску ускоренного контейнера с Control Panel, серверной вкладкой «📦 Пакетная генерация», <code>hf-xet</code> и <code>aria2c</code>.</p>
+      <div class="hint-bar">💡 Нажмите в любое место блока кода или подсвеченного поля, чтобы мгновенно скопировать текст</div>
+    </header>
+
+    <section>
+      <h2>Способ 1: Готовый Docker Image (GHCR) <span class="badge badge-recommended">Рекомендуемый</span></h2>
+      <p>Самый быстрый и стабильный вариант: старт контейнера за ~10–15 секунд без <code>git clone</code> и <code>pip install</code>. Код ComfyUI работает из <code>/opt/ComfyUI</code> (не тормозит на Network Volume), байткод <code>.pyc</code> и <code>aria2c</code> уже запечены в образ, а модели, <code>output</code> и настройки сохраняются в <code>/workspace/ComfyUI</code>.</p>
+
+      <h3>Шаг 1. Отправка изменений в GitHub и сборка образа</h3>
+      <ol>
+        <li>Закоммитьте и отправьте изменения в ветку <code>main</code> (включая <code>comfy_batch_engine.py</code>, <code>faq/templates_models.db</code> и обновлённые скрипты).</li>
+        <li>В GitHub откройте <strong>Actions → Build RunPod image → Run workflow</strong> и укажите тег релиза, например <code>v1.1.0</code>.</li>
+        <li>Дождитесь завершения workflow — образ появится в GHCR под именем <code>ghcr.io/dizzle700/comfyui-runpod:v1.1.0</code>.</li>
+      </ol>
+
+      <h3>Шаг 2. Параметры RunPod Template / Pod</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Поле в RunPod</th>
+            <th>Значение</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Container Image</strong></td>
+            <td><code>ghcr.io/dizzle700/comfyui-runpod:v1.1.0</code></td>
+          </tr>
+          <tr>
+            <td><strong>Container Start Command</strong></td>
+            <td>Оставить <strong>пустым</strong> — запуск уже настроен в <code>ENTRYPOINT</code> образа</td>
+          </tr>
+          <tr>
+            <td><strong>Volume Mount Path</strong></td>
+            <td><code>/workspace</code> (рекомендуется Network Volume для сохранения моделей)</td>
+          </tr>
+          <tr>
+            <td><strong>Expose HTTP Ports</strong></td>
+            <td><code>7860,8188</code></td>
+          </tr>
+          <tr>
+            <td><strong>Expose TCP Ports</strong></td>
+            <td><code>22</code> (опционально, если нужен SSH)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Шаг 3. Environment Variables (переменные окружения)</h3>
+      <pre>PANEL_USER={{ RUNPOD_SECRET_comfy_panel_user }}
+PANEL_PASS={{ RUNPOD_SECRET_comfy_panel_password }}
+COMFY_TEMPLATE_IDS=89,93,94
+COMFY_TEMPLATE_DOWNLOAD_WORKERS=4
+AUTO_START_COMFY=1
+HF_TOKEN={{ RUNPOD_SECRET_huggingface_token }}
+CIVITAI_API_TOKEN={{ RUNPOD_SECRET_civitai_token }}</pre>
+
+      <div class="callout callout-tip">
+        <strong>Дополнительные флаги ускорения и диагностики:</strong><br>
+        • <code>RUNPOD_BASE_SERVICES=0</code> — отключить фоновый Jupyter/SSH из базового образа (ещё быстрее старт и меньше RAM).<br>
+        • <code>COMFY_VERIFY_ON_START=1</code> — принудительно включить полную проверку Python-пакетов и импортов при старте (по умолчанию <code>0</code> для мгновенного запуска).<br>
+        • <code>COMFY_TEMPLATE_DOWNLOAD_WORKERS=4</code> — количество параллельных загрузок моделей (доступно от <code>1</code> до <code>8</code>).
+      </div>
+    </section>
+
+    <section>
+      <h2>Способ 2: Базовый образ RunPod + Start Command <span class="badge badge-alt">Без сборки Docker</span></h2>
+      <p>Подходит, если нужно быстро проверить изменения после <code>git push</code>, не дожидаясь сборки образа в GitHub Actions.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Поле в RunPod</th>
+            <th>Значение</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Container Image</strong></td>
+            <td><code>runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404</code></td>
+          </tr>
+          <tr>
+            <td><strong>Expose HTTP Ports</strong></td>
+            <td><code>7860,8188</code></td>
+          </tr>
+          <tr>
+            <td><strong>Обязательные Secrets</strong></td>
+            <td><code>PANEL_USER</code> и <code>PANEL_PASS</code> (плюс <code>HF_TOKEN</code> / <code>CIVITAI_API_TOKEN</code> при необходимости)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Команда запуска с фоновой загрузкой шаблонов (89, 93, 94)</h3>
+      <pre>bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI-runpod.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --templates 89,93,94'</pre>
+
+      <h3>Обычный запуск без предзагрузки моделей</h3>
+      <pre>bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI-runpod.git runpod-scripts; elif [ "${COMFY_UPDATE_ON_START:-0}" = 1 ]; then git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh'</pre>
+
+      <h3>Однократное обновление скриптов, ComfyUI и зависимостей</h3>
+      <pre>COMFY_UPDATE_ON_START=1 bash -lc 'cd /workspace && if [ ! -d runpod-scripts/.git ]; then git clone --depth 1 https://github.com/Dizzle700/ComfyUI-runpod.git runpod-scripts; else git -C runpod-scripts pull --ff-only; fi && bash runpod-scripts/runpod_startup.sh --templates 89,93,94'</pre>
+    </section>
+
+    <section>
+      <h2>Работа после запуска Pod</h2>
+      <ul>
+        <li><strong>Панель управления (Gradio + Batch Runner):</strong> <code>https://POD_ID-7860.proxy.runpod.net</code></li>
+        <li><strong>Интерфейс и API ComfyUI:</strong> <code>https://POD_ID-8188.proxy.runpod.net</code></li>
+      </ul>
+
+      <h3>Использование вкладки «📦 Пакетная генерация»</h3>
+      <ol>
+        <li>Откройте панель управления на порту <code>7860</code> и перейдите во вкладку <strong>📦 Пакетная генерация</strong>.</li>
+        <li>Выберите готовый API Workflow из выпадающего списка (шаблоны из <code>COMFY_TEMPLATE_IDS</code> появляются сразу с индикатором готовности моделей <code>🟢</code> / <code>⏳</code>) или загрузите свой <code>.json</code> (API Format).</li>
+        <li>Убедитесь, что целевой узел промпта определился автоматически (значок <code>⭐</code>).</li>
+        <li>Загрузите файл <code>.txt</code> с промптами или вставьте их в текстовое поле (по одному промпту на строку) и нажмите <strong>🚀 Запустить пакет</strong>.</li>
+        <li>Генерация идёт локально на сервере (<code>127.0.0.1:8188</code>) — браузер можно закрыть. Готовые изображения скачиваются архивом во вкладке <strong>🎞️ Output</strong>.</li>
+      </ol>
+
+      <h3>Проверка статуса шаблонов через API</h3>
+      <pre>curl -u "$PANEL_USER:$PANEL_PASS" https://POD_ID-7860.proxy.runpod.net/template-apis</pre>
+
+      <div class="callout">
+        <strong>Важно:</strong> пароль <code>PANEL_USER</code> / <code>PANEL_PASS</code> защищает порт <code>7860</code> (панель, терминал и <code>/template-apis</code>). Порт <code>8188</code> открывает стандартный ComfyUI без авторизации — для приватного доступа не публикуйте <code>8188</code> через HTTP Proxy, используйте SSH-туннель.
+      </div>
+    </section>
+  </div>
+
+  <div id="copy-toast">✓ Скопировано в буфер обмена!</div>
+
+  <script>
+    (function () {
+      const toast = document.getElementById("copy-toast");
+      let toastTimer = null;
+
+      function showToast(text) {
+        toast.textContent = text;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 1800);
+      }
+
+      async function copyText(text, el) {
+        const cleaned = text.trim();
+        if (!cleaned) return;
+        try {
+          await navigator.clipboard.writeText(cleaned);
+        } catch (_) {
+          const area = document.createElement("textarea");
+          area.value = cleaned;
+          area.style.position = "fixed";
+          area.style.opacity = "0";
+          document.body.appendChild(area);
+          area.select();
+          document.execCommand("copy");
+          document.body.removeChild(area);
+        }
+        el.classList.add("copied-flash");
+        setTimeout(() => el.classList.remove("copied-flash"), 450);
+        showToast("✓ Скопировано в буфер обмена!");
+      }
+
+      document.querySelectorAll("pre, code").forEach((el) => {
+        if (el.tagName === "CODE" && el.parentElement && el.parentElement.tagName === "PRE") {
+          return;
+        }
+        el.setAttribute("title", "Нажмите, чтобы скопировать");
+        el.addEventListener("click", (event) => {
+          event.stopPropagation();
+          copyText(el.innerText, el);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

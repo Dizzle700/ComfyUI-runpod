@@ -444,6 +444,14 @@ import gradio as gr
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+import comfy_batch_engine as batch_engine
+
+batch_runner = batch_engine.BatchRunner()
+_batch_loaded_workflow = {}
+_batch_workflow_lock = threading.Lock()
+
 # is_installing и install_lock определены выше, в блоке глобальных переменных
 
 def run_installation():
@@ -2072,6 +2080,8 @@ async def panel_lifespan(app):
     try:
         yield
     finally:
+        if batch_runner.is_running():
+            batch_runner.stop(interrupt_server=False)
         # Uvicorn handles SIGTERM; also stop ComfyUI's separate process group.
         if comfy_process is not None:
             stop_comfy()
@@ -2136,6 +2146,199 @@ def template_status(template, available_nodes):
         "ready": not missing and available_nodes is not None and not missing_nodes,
         "api_url": f"/template-apis/{template['id']}/api",
     }
+
+
+def list_batch_workflow_choices():
+    """Return dropdown choices (label, path) for exported template APIs and local workflows."""
+    choices = []
+    seen_paths = set()
+    for item in read_template_manifest():
+        api_path = item.get("api_json")
+        if api_path and os.path.isfile(api_path):
+            real_path = os.path.realpath(api_path)
+            seen_paths.add(real_path)
+            missing = [
+                rel for rel in item.get("models", [])
+                if not os.path.isfile(os.path.join(COMFY_DIR, rel))
+                or os.path.getsize(os.path.join(COMFY_DIR, rel)) == 0
+            ]
+            badge = "🟢" if not missing else f"⏳ (ждём {len(missing)} мод.)"
+            label = f"{badge} Шаблон #{item['id']}: {item.get('name', '')}"
+            choices.append((label, api_path))
+
+    extra_dirs = [
+        TEMPLATE_EXPORT_DIR,
+        os.path.join(BASE_DIR, "comfy_prompt_batcher", "workflow"),
+    ]
+    for folder in extra_dirs:
+        if not os.path.isdir(folder):
+            continue
+        for name in sorted(os.listdir(folder)):
+            if not name.endswith(".json") or name in ("manifest.json", "server_history.json") or name.endswith(".workflow.json"):
+                continue
+            full_path = os.path.join(folder, name)
+            real_path = os.path.realpath(full_path)
+            if os.path.isfile(full_path) and real_path not in seen_paths:
+                seen_paths.add(real_path)
+                choices.append((f"📄 {name}", full_path))
+    return choices
+
+
+def _load_batch_workflow_dict(wf_data, source_label):
+    if not isinstance(wf_data, dict) or not wf_data:
+        return (
+            gr.update(choices=[], value=None),
+            "",
+            "⚠️ JSON не похож на ComfyUI API Workflow (ожидается объект узлов).",
+        )
+    if "nodes" in wf_data and "links" in wf_data:
+        return (
+            gr.update(choices=[], value=None),
+            "",
+            "⚠️ Загружен визуальный workflow, а нужен **API Format** (`Save (API Format)` или шаблон из `template_apis`).",
+        )
+    nodes = batch_engine.detect_prompt_nodes(wf_data)
+    with _batch_workflow_lock:
+        _batch_loaded_workflow.clear()
+        _batch_loaded_workflow.update(wf_data)
+
+    choices = [(item["label"], item["value"]) for item in nodes]
+    default_value = choices[0][1] if choices else None
+    model_name = batch_engine.extract_model_name(wf_data) or ""
+    suggested_prefix = batch_engine.sanitize_folder_name(model_name) if model_name else ""
+    if not nodes:
+        status = f"⚠️ Загружен `{source_label}`, но текстовые поля промпта не найдены."
+    else:
+        status = (
+            f"✅ Загружен `{source_label}` ({len(wf_data)} узлов, "
+            f"найдено текстовых полей: {len(nodes)})."
+        )
+    return gr.update(choices=choices, value=default_value), suggested_prefix, status
+
+
+def load_batch_workflow_from_path(wf_path):
+    if not wf_path or not os.path.isfile(wf_path):
+        return gr.update(choices=[], value=None), "", "Выберите workflow из списка или загрузите API JSON файл."
+    try:
+        with open(wf_path, encoding="utf-8") as stream:
+            data = json.load(stream)
+    except (OSError, ValueError) as exc:
+        return gr.update(choices=[], value=None), "", f"❌ Ошибка чтения JSON: {exc}"
+    return _load_batch_workflow_dict(data, os.path.basename(wf_path))
+
+
+def load_batch_workflow_from_upload(uploaded_file):
+    if not uploaded_file:
+        return gr.update(), gr.update(), "Файл не выбран."
+    path = uploaded_file if isinstance(uploaded_file, str) else getattr(uploaded_file, "name", "")
+    return load_batch_workflow_from_path(path)
+
+
+def refresh_batch_workflows():
+    choices = list_batch_workflow_choices()
+    default_val = choices[0][1] if choices else None
+    node_upd, prefix, status = load_batch_workflow_from_path(default_val)
+    return gr.update(choices=choices, value=default_val), node_upd, prefix, status
+
+
+def load_batch_prompts_file(uploaded_file):
+    if not uploaded_file:
+        return gr.update(), "Файл промптов не выбран."
+    path = uploaded_file if isinstance(uploaded_file, str) else getattr(uploaded_file, "name", "")
+    try:
+        with open(path, encoding="utf-8", errors="replace") as stream:
+            text = stream.read()
+    except OSError as exc:
+        return gr.update(), f"❌ Не удалось прочитать файл: {exc}"
+    count = len(batch_engine.parse_prompts_text(text))
+    return text, f"✅ Загружено промптов из `{os.path.basename(path)}`: **{count}**"
+
+
+def get_batch_progress_html(snap=None):
+    if snap is None:
+        snap = batch_runner.snapshot()
+    style_base = (
+        "padding:12px;border-radius:8px;"
+        "background:var(--background-fill-secondary);"
+        "border:1px solid var(--border-color-primary)"
+    )
+    total = snap["total"]
+    done = snap["completed"]
+    pct = (done / total * 100.0) if total > 0 else 0.0
+    if snap["running"]:
+        dot_color = "#22c55e"
+        elapsed = format_elapsed_time(time.time() - snap["started_at"]) if snap["started_at"] else "0с"
+    elif total > 0:
+        dot_color = "#f59e0b" if snap["failed"] else "#3b82f6"
+        elapsed = (
+            format_elapsed_time(snap["finished_at"] - snap["started_at"])
+            if snap["finished_at"] and snap["started_at"] else "0с"
+        )
+    else:
+        dot_color = "#6b7280"
+        elapsed = ""
+
+    summary_html = _escape_html(snap["summary"])
+    elapsed_html = (
+        f'<span style="margin-left:auto;color:var(--body-text-color-subdued)">⏱ {elapsed}</span>'
+        if elapsed else ""
+    )
+    bar = (
+        '<div style="width:100%;height:8px;background:var(--border-color-primary);'
+        'border-radius:4px;overflow:hidden;margin-top:8px">'
+        f'<div style="width:{pct:.1f}%;height:100%;'
+        'background:linear-gradient(90deg,#f97316,#22c55e);border-radius:4px;'
+        'transition:width .4s ease"></div></div>'
+    ) if total > 0 else ""
+
+    return (
+        f'<div style="{style_base}">'
+        '<div style="display:flex;align-items:center;gap:8px">'
+        f'<div style="width:12px;height:12px;border-radius:50%;background:{dot_color}"></div>'
+        f'<strong>{summary_html}</strong>'
+        f'{elapsed_html}</div>{bar}</div>'
+    )
+
+
+def start_batch_from_panel(node_selection, prompts_text, sequential, randomize_seeds, filename_prefix):
+    node_id, input_key = batch_engine.parse_node_selection(node_selection)
+    if not node_id or not input_key:
+        return get_batch_progress_html(), "⚠️ Сначала загрузите API Workflow и выберите целевой узел промпта."
+    prompts = batch_engine.parse_prompts_text(prompts_text)
+    if not prompts:
+        return get_batch_progress_html(), "⚠️ Введите хотя бы один промпт (по одному на строку)."
+    with _batch_workflow_lock:
+        wf_copy = json.loads(json.dumps(_batch_loaded_workflow)) if _batch_loaded_workflow else {}
+    local_url = os.environ.get("COMFY_API_LOCAL_URL", "http://127.0.0.1:8188")
+    ok, message = batch_runner.start(
+        server_url=local_url,
+        workflow_data=wf_copy,
+        node_id=node_id,
+        input_key=input_key,
+        prompts=prompts,
+        sequential=sequential,
+        randomize_seeds=randomize_seeds,
+        filename_prefix=filename_prefix,
+        output_dir=OUTPUT_DIR,
+    )
+    prefix = "🚀 " if ok else "❌ "
+    return get_batch_progress_html(), prefix + message
+
+
+def stop_batch_from_panel(interrupt_current):
+    message = batch_runner.stop(interrupt_server=bool(interrupt_current))
+    return get_batch_progress_html(), f"⏹️ {message}"
+
+
+def refresh_batch_ui():
+    snap = batch_runner.snapshot()
+    return (
+        get_batch_progress_html(snap),
+        snap["rows"],
+        snap["logs"],
+        snap["last_image"],
+        f"**Последний промпт:** {snap['last_prompt']}" if snap["last_prompt"] else "",
+    )
 
 
 @panel_app.get("/template-apis")
@@ -2700,6 +2903,96 @@ with gr.Blocks(title="ComfyUI RunPod Control Panel", theme=gr.themes.Default(pri
             )
             my_dl_mass_status = gr.Markdown("")
 
+        # Вкладка 8: Пакетная генерация (серверный Batch Prompt Runner)
+        with gr.TabItem("📦 Пакетная генерация"):
+            gr.Markdown(
+                "### Пакетная отправка промптов в локальный ComfyUI (`127.0.0.1:8188`)\n"
+                "Работает прямо на сервере RunPod — можно закрыть браузер, очередь продолжит выполняться. "
+                "Результаты сохраняются в `ComfyUI/output` (доступны во вкладке **🎞️ Output**)."
+            )
+            batch_initial_choices = list_batch_workflow_choices()
+            batch_initial_wf = batch_initial_choices[0][1] if batch_initial_choices else None
+            batch_initial_nodes_upd, batch_initial_prefix, batch_initial_wf_status = (
+                load_batch_workflow_from_path(batch_initial_wf)
+            )
+
+            with gr.Row():
+                with gr.Column(scale=1):
+                    with gr.Row():
+                        batch_wf_dropdown = gr.Dropdown(
+                            label="API Workflow (шаблоны RunPod и локальные JSON)",
+                            choices=batch_initial_choices,
+                            value=batch_initial_wf,
+                            scale=4,
+                        )
+                        btn_batch_refresh_wf = gr.Button("🔄", scale=1)
+                    batch_wf_upload = gr.File(
+                        label="Или загрузить свой API Workflow (.json)",
+                        file_types=[".json"],
+                        type="filepath",
+                    )
+                    batch_wf_status = gr.Markdown(batch_initial_wf_status)
+                    batch_node_dropdown = gr.Dropdown(
+                        label="Целевой узел промпта (автовыбор ⭐)",
+                        choices=batch_initial_nodes_upd.get("choices", []),
+                        value=batch_initial_nodes_upd.get("value"),
+                    )
+                    batch_prefix_input = gr.Textbox(
+                        label="Префикс имени файла (необязательно, заменяет filename_prefix)",
+                        value=batch_initial_prefix,
+                        placeholder="например: flux_batch",
+                    )
+                    with gr.Row():
+                        batch_sequential = gr.Checkbox(
+                            label="Последовательно (ждать каждый кадр + превью)",
+                            value=True,
+                        )
+                        batch_random_seed = gr.Checkbox(
+                            label="Случайный seed для каждого промпта",
+                            value=True,
+                        )
+                    batch_prompts_file = gr.File(
+                        label="Загрузить промпты из .txt (по одному на строку)",
+                        file_types=[".txt"],
+                        type="filepath",
+                    )
+                    batch_prompts_box = gr.Textbox(
+                        label="Список промптов (каждая непустая строка = отдельная генерация)",
+                        lines=8,
+                        placeholder="a cinematic photo of a red fox in snowy forest\ncyberpunk street at night, neon reflections, rain",
+                    )
+                    batch_action_status = gr.Markdown("")
+                    with gr.Row():
+                        btn_batch_start = gr.Button("🚀 Запустить пакет", variant="primary")
+                        btn_batch_stop = gr.Button("⏹️ Остановить", variant="stop")
+                        batch_interrupt_cb = gr.Checkbox(
+                            label="Прервать текущий кадр (/interrupt)",
+                            value=False,
+                        )
+
+                with gr.Column(scale=1):
+                    batch_progress_html = gr.HTML(value=get_batch_progress_html())
+                    batch_preview_image = gr.Image(
+                        label="Последнее сгенерированное изображение",
+                        type="filepath",
+                        interactive=False,
+                        height=360,
+                    )
+                    batch_last_prompt_md = gr.Markdown("")
+                    batch_queue_table = gr.Dataframe(
+                        headers=["#", "Статус", "Промпт", "Детали"],
+                        datatype=["number", "str", "str", "str"],
+                        value=[],
+                        label="Очередь пакетной генерации",
+                        interactive=False,
+                        type="array",
+                    )
+                    batch_log_box = gr.Textbox(
+                        label="Лог пакетной генерации",
+                        lines=8,
+                        interactive=False,
+                    )
+
     # Автообновление статуса и ресурсов каждые 5 секунд
     auto_refresh_timer = gr.Timer(value=5)
     archive_refresh_timer = gr.Timer(value=2)
@@ -2711,21 +3004,73 @@ with gr.Blocks(title="ComfyUI RunPod Control Panel", theme=gr.themes.Default(pri
 
     auto_refresh_timer.tick(periodic_status_update, outputs=[status_indicator, pid_indicator, system_stats_box])
 
-    # Автообновление логов и прогресса скачивания
+    # Автообновление логов и прогресса скачивания / пакетной генерации
     log_refresh_timer = gr.Timer(value=3)
 
     def periodic_log_update(num_lines):
+        b_prog, b_rows, b_logs, b_img, b_prompt = refresh_batch_ui()
         return (
             read_logs(num_lines),
             get_download_logs(),
             get_node_logs(),
             get_download_progress_html(),
+            b_prog,
+            b_rows,
+            b_logs,
+            b_img,
+            b_prompt,
         )
 
     log_refresh_timer.tick(
         periodic_log_update,
         inputs=[lines_slider],
-        outputs=[log_output, dl_log_output, node_log_output, download_progress_indicator],
+        outputs=[
+            log_output,
+            dl_log_output,
+            node_log_output,
+            download_progress_indicator,
+            batch_progress_html,
+            batch_queue_table,
+            batch_log_box,
+            batch_preview_image,
+            batch_last_prompt_md,
+        ],
+    )
+
+    btn_batch_refresh_wf.click(
+        refresh_batch_workflows,
+        outputs=[batch_wf_dropdown, batch_node_dropdown, batch_prefix_input, batch_wf_status],
+    )
+    batch_wf_dropdown.change(
+        load_batch_workflow_from_path,
+        inputs=[batch_wf_dropdown],
+        outputs=[batch_node_dropdown, batch_prefix_input, batch_wf_status],
+    )
+    batch_wf_upload.change(
+        load_batch_workflow_from_upload,
+        inputs=[batch_wf_upload],
+        outputs=[batch_node_dropdown, batch_prefix_input, batch_wf_status],
+    )
+    batch_prompts_file.change(
+        load_batch_prompts_file,
+        inputs=[batch_prompts_file],
+        outputs=[batch_prompts_box, batch_action_status],
+    )
+    btn_batch_start.click(
+        start_batch_from_panel,
+        inputs=[
+            batch_node_dropdown,
+            batch_prompts_box,
+            batch_sequential,
+            batch_random_seed,
+            batch_prefix_input,
+        ],
+        outputs=[batch_progress_html, batch_action_status],
+    )
+    btn_batch_stop.click(
+        stop_batch_from_panel,
+        inputs=[batch_interrupt_cb],
+        outputs=[batch_progress_html, batch_action_status],
     )
 
     def refresh_archive_jobs():
