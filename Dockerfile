@@ -11,7 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /opt/runpod-scripts
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      git curl ca-certificates util-linux tini libgl1 libglib2.0-0 \
+      git curl aria2 ca-certificates util-linux tini libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Keep this expensive layer cached when panel/downloader code changes.
@@ -23,8 +23,10 @@ ARG SOURCE_REVISION=local
 LABEL org.opencontainers.image.source="https://github.com/Dizzle700/ComfyUI-runpod" \
       org.opencontainers.image.revision="${SOURCE_REVISION}"
 COPY runpod_startup.sh comfy_control_panel.py comfy_model_downloader.sh \
-     comfy_template_startup.py templates_models.db KRea.txt ./
+     comfy_template_startup.py KRea.txt ./
+COPY templates_models.db* faq/templates_models.db* ./
 COPY docker/ /opt/runpod-scripts/docker/
+RUN python3 -m compileall -q /opt/runpod-scripts || true
 ENV COMFY_PREBUILT=1
 EXPOSE 7860 8188 22
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \

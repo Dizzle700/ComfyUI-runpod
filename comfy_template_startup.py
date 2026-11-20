@@ -10,11 +10,24 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+import tempfile
 from urllib.parse import urlparse
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "templates_models.db"
+
+
+def _resolve_db_path():
+    override = os.environ.get("COMFY_TEMPLATES_DB")
+    if override:
+        return Path(override)
+    for candidate in (BASE_DIR / "templates_models.db", BASE_DIR / "faq" / "templates_models.db"):
+        if candidate.is_file():
+            return candidate
+    return BASE_DIR / "templates_models.db"
+
+
+DB_PATH = _resolve_db_path()
 DOWNLOADER = BASE_DIR / "comfy_model_downloader.sh"
 DEFAULT_COMFY_DIR = Path("/workspace/ComfyUI") if Path("/workspace").is_dir() else BASE_DIR / "ComfyUI"
 COMFY_DIR = Path(os.environ.get("COMFY_DIR", DEFAULT_COMFY_DIR))
@@ -81,20 +94,26 @@ def strip_ui_notes(api):
     return {key: node for key, node in api.items() if key not in notes}
 
 
-def prepare(selected):
-    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-    manifest = []
+def _atomic_write_text(path, content):
+    """Write file atomically via temp file + os.replace to prevent partial reads."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_name = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=path.name + ".", delete=False,
+        ) as stream:
+            temp_name = stream.name
+            stream.write(content)
+        os.replace(temp_name, path)
+    finally:
+        if temp_name is not None and os.path.exists(temp_name):
+            os.unlink(temp_name)
+
+
+def collect_downloads(selected):
     downloads = {}
-    for template, models in selected:
-        number = template["id"]
-        api = strip_ui_notes(json.loads(template["api_json"]))
-        api_file = EXPORT_DIR / f"{number}.api.json"
-        api_file.write_text(json.dumps(api, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        workflow_file = None
-        if template["workflow_json"]:
-            workflow = json.loads(template["workflow_json"])
-            workflow_file = EXPORT_DIR / f"{number}.workflow.json"
-            workflow_file.write_text(json.dumps(workflow, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    for _, models in selected:
         for model in models:
             validate_model(model)
             key = (model["directory"], model["name"])
@@ -102,6 +121,23 @@ def prepare(selected):
                 print(f"Общий файл models/{key[0]}/{key[1]} указан с разными URL; используется первый", flush=True)
             else:
                 downloads.setdefault(key, model["url"])
+    return downloads
+
+
+def prepare(selected):
+    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    manifest = []
+    downloads = collect_downloads(selected)
+    for template, models in selected:
+        number = template["id"]
+        api = strip_ui_notes(json.loads(template["api_json"]))
+        api_file = EXPORT_DIR / f"{number}.api.json"
+        _atomic_write_text(api_file, json.dumps(api, ensure_ascii=False, indent=2) + "\n")
+        workflow_file = None
+        if template["workflow_json"]:
+            workflow = json.loads(template["workflow_json"])
+            workflow_file = EXPORT_DIR / f"{number}.workflow.json"
+            _atomic_write_text(workflow_file, json.dumps(workflow, ensure_ascii=False, indent=2) + "\n")
         manifest.append({
             "id": number,
             "name": template["name"],
@@ -113,8 +149,9 @@ def prepare(selected):
                 if isinstance(node, dict) and isinstance(node.get("class_type"), str)
             }) if isinstance(api, dict) else [],
         })
-    (EXPORT_DIR / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    _atomic_write_text(
+        EXPORT_DIR / "manifest.json",
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
     )
     return downloads, manifest
 
@@ -141,6 +178,8 @@ def main():
     parser.add_argument("action", choices=("list", "validate", "prepare", "download"))
     parser.add_argument("--templates", default="")
     parser.add_argument("--workers", type=int, default=2)
+    parser.add_argument("--skip-prepare", action="store_true",
+                        help="Skip rewriting API JSON/manifest when already prepared.")
     args = parser.parse_args()
     if args.action == "list":
         with closing(sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)) as connection:
@@ -149,8 +188,8 @@ def main():
             ):
                 print(f"{number:3}  {name}  ({count} моделей)")
         return 0
-    if not 1 <= args.workers <= 4:
-        parser.error("--workers должен быть от 1 до 4")
+    if not 1 <= args.workers <= 8:
+        parser.error("--workers должен быть от 1 до 8")
     try:
         selected = load_templates(template_ids(args.templates))
         if args.action == "validate":
@@ -158,10 +197,15 @@ def main():
                 f"{template['id']} ({template['name']})" for template, _ in selected
             ))
             return 0
-        downloads, manifest = prepare(selected)
+        if args.action == "download" and args.skip_prepare:
+            downloads = collect_downloads(selected)
+            manifest = None
+        else:
+            downloads, manifest = prepare(selected)
     except (ValueError, sqlite3.Error, json.JSONDecodeError) as exc:
         parser.error(str(exc))
-    print(f"API JSON готовы в {EXPORT_DIR}; шаблонов: {len(manifest)}, уникальных моделей: {len(downloads)}", flush=True)
+    if manifest is not None:
+        print(f"API JSON готовы в {EXPORT_DIR}; шаблонов: {len(manifest)}, уникальных моделей: {len(downloads)}", flush=True)
     if args.action == "prepare":
         return 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:

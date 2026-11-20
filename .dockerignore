@@ -9,6 +9,7 @@
 !comfy_model_downloader.sh
 !comfy_template_startup.py
 !templates_models.db
+!faq/templates_models.db
 !KRea.txt
 !docker/
 !docker/**

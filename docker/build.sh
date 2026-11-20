@@ -17,6 +17,7 @@ checkout https://github.com/Comfy-Org/ComfyUI.git "$COMFY_DIR" "$comfy_commit"
 checkout https://github.com/Comfy-Org/ComfyUI-Manager.git \
     "$COMFY_DIR/custom_nodes/comfyui-manager" "$manager_commit"
 bash /opt/runpod-scripts/comfy_install_runpod.sh --no-start
+python3 -m compileall -q "$COMFY_DIR" || true
 python3 -m pip freeze --all > /opt/python-packages.txt
 python3 - "$comfy_commit" "$manager_commit" <<'PY'
 import json, sys
