@@ -105,7 +105,7 @@ done
 export COMFY_MODEL_PACKAGES="$MODEL_PACKAGES"
 export COMFY_TEMPLATE_IDS="$TEMPLATE_IDS"
 
-if [[ -n "$TEMPLATE_IDS" ]]; then
+if [[ -n "$TEMPLATE_IDS" && "${COMFY_PREBUILT:-0}" != 1 ]]; then
     python3 "$SCRIPT_DIR/comfy_template_startup.py" validate --templates "$TEMPLATE_IDS"
 fi
 
@@ -180,18 +180,17 @@ if [[ -d "/workspace" ]]; then
     export HF_HOME="${HF_HOME:-/workspace/.cache/huggingface}"
     export HF_HUB_CACHE="${HF_HUB_CACHE:-${HUGGINGFACE_HUB_CACHE:-/workspace/.cache/huggingface/hub}}"
     export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HUB_CACHE}"
-    export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-/workspace/.cache/huggingface/transformers}"
     export DIFFUSERS_CACHE="${DIFFUSERS_CACHE:-/workspace/.cache/huggingface/diffusers}"
     export HF_XET_CACHE="${HF_XET_CACHE:-/workspace/.cache/huggingface/xet}"
     mkdir -p "$PIP_CACHE_DIR" "$TORCH_HOME" \
-        "$HF_HOME" "$HF_HUB_CACHE" "$TRANSFORMERS_CACHE" "$DIFFUSERS_CACHE" \
+        "$HF_HOME" "$HF_HUB_CACHE" "$DIFFUSERS_CACHE" \
         "$HF_XET_CACHE"
 fi
 
 # Проверяем наличие основного установщика
 if [[ -f "$SCRIPT_DIR/comfy_install_runpod.sh" ]]; then
     echo "Обнаружен comfy_install_runpod.sh. Запуск автоматической установки и панели управления..."
-    bash "$SCRIPT_DIR/comfy_install_runpod.sh"
+    exec bash "$SCRIPT_DIR/comfy_install_runpod.sh"
 else
     echo "Ошибка: comfy_install_runpod.sh не найден в директории $SCRIPT_DIR!"
     exit 1

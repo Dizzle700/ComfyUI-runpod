@@ -34,6 +34,15 @@ class TemplateApiExportTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             templates.strip_ui_notes(api)
 
+    def test_collect_downloads_validates_without_rewriting_exports(self):
+        selected = templates.load_templates([94])
+        with tempfile.TemporaryDirectory() as folder:
+            export_dir = Path(folder)
+            with patch.object(templates, 'EXPORT_DIR', export_dir):
+                downloads = templates.collect_downloads(selected)
+            self.assertGreater(len(downloads), 0)
+            self.assertFalse((export_dir / 'manifest.json').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

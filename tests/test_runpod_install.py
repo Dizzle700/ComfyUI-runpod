@@ -140,6 +140,19 @@ class RunpodInstallTests(unittest.TestCase):
         self.env['TEST_CACHE_MISS'] = '1'
         self.assertEqual(self.run_installer(expect_success=False), [])
 
+    def test_prebuilt_fast_start_skips_slow_cache_check_by_default(self):
+        self.env['COMFY_PREBUILT'] = '1'
+        self.env['TEST_CACHE_MISS'] = '1'
+        self.stamp.write_text('{}')
+        self.assertEqual(self.run_installer(), [])
+
+    def test_prebuilt_verify_on_start_runs_strict_cache_check(self):
+        self.env['COMFY_PREBUILT'] = '1'
+        self.env['COMFY_VERIFY_ON_START'] = '1'
+        self.env['TEST_CACHE_MISS'] = '1'
+        self.stamp.write_text('{}')
+        self.assertEqual(self.run_installer(expect_success=False), [])
+
     def test_prebuilt_update_requires_new_image(self):
         self.env['COMFY_PREBUILT'] = '1'
         self.stamp.write_text('{}')

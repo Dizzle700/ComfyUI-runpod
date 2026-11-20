@@ -20,10 +20,7 @@ from urllib.request import urlopen
 from collections import deque
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
-import gradio as gr
 import psutil
-import uvicorn
-from fastapi import FastAPI, HTTPException, Request
 
 # Определение путей
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -274,6 +271,25 @@ def get_system_stats():
     """
     return stats_html
 
+def _is_comfy_process(proc):
+    """Return True if proc is ComfyUI's main.py running from COMFY_DIR."""
+    cmd = proc.info.get('cmdline') or []
+    if not cmd:
+        return False
+    has_python = any('python' in os.path.basename(part).lower() for part in cmd[:2])
+    main_args = [part for part in cmd[1:] if os.path.basename(part) == 'main.py']
+    if not (has_python and main_args):
+        return False
+    comfy_real = os.path.realpath(COMFY_DIR)
+    for part in main_args:
+        if os.path.isabs(part) and os.path.realpath(os.path.dirname(part)) == comfy_real:
+            return True
+    try:
+        return os.path.realpath(proc.cwd()) == comfy_real
+    except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+        return False
+
+
 def get_comfy_status():
     global comfy_process, is_installing
     
@@ -294,18 +310,17 @@ def get_comfy_status():
             else:
                 comfy_process = None
         
-        # Проверяем, запущен ли main.py в системе глобально
+        # Проверяем, запущен ли main.py ComfyUI в системе глобально
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
-                cmd = proc.info['cmdline']
-                if cmd and any('main.py' in part for part in cmd) and any('python' in part for part in cmd):
+                if _is_comfy_process(proc):
                     return "🟢 Запущен извне (Running externally)", f"PID: {proc.info['pid']}"
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
                 
         return "🔴 Остановлен (Stopped)", "Нет активного процесса"
 
-def start_comfy(args):
+def start_comfy(args, wait_seconds=2):
     global comfy_process
     status, _ = get_comfy_status()
     if "Запущен" in status:
@@ -333,23 +348,26 @@ def start_comfy(args):
         log_file_obj.flush()
         
         with process_lock:
-            comfy_process = subprocess.Popen(
+            proc = subprocess.Popen(
                 [python_exe, "main.py"] + arg_list,
                 cwd=COMFY_DIR,
                 stdout=log_file_obj,
                 stderr=log_file_obj,
                 preexec_fn=os.setsid # Создаем группу процессов для надежного завершения
             )
+            comfy_process = proc
         
         # Popen дублирует fd; родительский дескриптор больше не нужен
         log_file_obj.close()
         
-        time.sleep(2) # Даем процессу инициализироваться
-        if comfy_process.poll() is not None:
-            with process_lock:
-                return_code = comfy_process.returncode
-                comfy_process = None
-            return f"ComfyUI завершился сразу после запуска (код {return_code}). Проверьте {LOG_FILE}"
+        if wait_seconds > 0:
+            time.sleep(wait_seconds) # Даем процессу инициализироваться при ручном старте
+        with process_lock:
+            if proc.poll() is not None:
+                return_code = proc.returncode
+                if comfy_process is proc:
+                    comfy_process = None
+                return f"ComfyUI завершился сразу после запуска (код {return_code}). Проверьте {LOG_FILE}"
         return f"Запущено! Логи пишутся в {LOG_FILE}"
     except Exception as e:
         return f"Ошибка при запуске: {str(e)}"
@@ -369,12 +387,11 @@ def stop_comfy():
                 comfy_process = None
                 return "Процесс остановлен."
         
-        # Если запущен извне, ищем и убиваем все процессы main.py
+        # Если запущен извне, ищем и убиваем только процессы main.py из COMFY_DIR
         killed = 0
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
-                cmd = proc.info['cmdline']
-                if cmd and any('main.py' in part for part in cmd) and any('python' in part for part in cmd):
+                if _is_comfy_process(proc):
                     os.kill(proc.info['pid'], signal.SIGTERM)
                     killed += 1
             except (psutil.NoSuchProcess, psutil.AccessDenied):
@@ -400,6 +417,32 @@ def restart_comfy(args):
     time.sleep(3)
     start_result = start_comfy(args)
     return f"{stop_result}\n{start_result}"
+
+
+# Ранний старт ComfyUI до тяжёлого импорта Gradio и сборки UI:
+# ComfyUI инициализирует PyTorch/CUDA параллельно с запуском панели.
+if __name__ == "__main__":
+    _early_user = os.environ.get("PANEL_USER", "").strip()
+    _early_pass = os.environ.get("PANEL_PASS", "")
+    if not _early_user or not _early_pass:
+        print(
+            "ОШИБКА: задайте PANEL_USER и PANEL_PASS через RunPod Secrets "
+            "или .env.secrets. "
+            "Панель с Terminal не запускается без аутентификации.",
+            file=sys.stderr,
+            flush=True,
+        )
+        raise SystemExit(2)
+    _early_auto_start = os.environ.get("AUTO_START_COMFY", "1").strip().lower()
+    if _early_auto_start not in {"0", "false", "no", "off"}:
+        print(
+            f"Автозапуск ComfyUI: {start_comfy(DEFAULT_COMFY_ARGS, wait_seconds=0)}",
+            flush=True,
+        )
+
+import gradio as gr
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
 
 # is_installing и install_lock определены выше, в блоке глобальных переменных
 
@@ -2113,7 +2156,8 @@ def get_template_api(template_id: int, request: Request):
 
 
 def verify_chunk_upload_token(request):
-    if request.headers.get("x-upload-token") != CHUNK_UPLOAD_TOKEN:
+    provided = request.headers.get("x-upload-token", "")
+    if not secrets.compare_digest(provided, CHUNK_UPLOAD_TOKEN):
         raise HTTPException(status_code=403, detail="Недействительный токен загрузки")
 
 
@@ -2940,24 +2984,7 @@ with gr.Blocks(title="ComfyUI RunPod Control Panel", theme=gr.themes.Default(pri
     demo.load(fn=None, js=CHUNK_UPLOADER_JS)
 
 if __name__ == "__main__":
-    panel_user = os.environ.get("PANEL_USER", "").strip()
-    panel_pass = os.environ.get("PANEL_PASS", "")
-    if not panel_user or not panel_pass:
-        print(
-            "ОШИБКА: задайте PANEL_USER и PANEL_PASS через RunPod Secrets "
-            "или .env.secrets. "
-            "Панель с Terminal не запускается без аутентификации.",
-            file=sys.stderr,
-            flush=True,
-        )
-        raise SystemExit(2)
-    auth = (panel_user, panel_pass)
-
-    # На RunPod по умолчанию запускаем ComfyUI вместе с панелью. Отключить можно
-    # переменной AUTO_START_COMFY=0 и затем запускать сервер кнопкой в панели.
-    auto_start = os.environ.get("AUTO_START_COMFY", "1").strip().lower()
-    if auto_start not in {"0", "false", "no", "off"}:
-        print(f"Автозапуск ComfyUI: {start_comfy(DEFAULT_COMFY_ARGS)}", flush=True)
+    auth = (_early_user, _early_pass)
 
     # Запуск Gradio. Порт 7860 по умолчанию.
     # Флаг share=True не рекомендуется запускать без пароля на публичных подах,

@@ -25,11 +25,10 @@ if [[ -d "/workspace" ]]; then
     export HF_HOME="${HF_HOME:-/workspace/.cache/huggingface}"
     export HF_HUB_CACHE="${HF_HUB_CACHE:-${HUGGINGFACE_HUB_CACHE:-/workspace/.cache/huggingface/hub}}"
     export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HUB_CACHE}"
-    export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-/workspace/.cache/huggingface/transformers}"
     export DIFFUSERS_CACHE="${DIFFUSERS_CACHE:-/workspace/.cache/huggingface/diffusers}"
     export HF_XET_CACHE="${HF_XET_CACHE:-/workspace/.cache/huggingface/xet}"
     mkdir -p "$PIP_CACHE_DIR" "$TORCH_HOME" \
-        "$HF_HOME" "$HF_HUB_CACHE" "$TRANSFORMERS_CACHE" "$DIFFUSERS_CACHE" \
+        "$HF_HOME" "$HF_HUB_CACHE" "$DIFFUSERS_CACHE" \
         "$HF_XET_CACHE"
 fi
 
@@ -148,7 +147,7 @@ start_template_downloads() {
         --workers "${COMFY_TEMPLATE_DOWNLOAD_WORKERS:-2}"
     info "API JSON готовы в $COMFY_DIR/template_apis; загрузка моделей пойдет в фоне."
     PYTHONUNBUFFERED=1 nohup flock -n "$COMFY_DIR/.template-download.lock" \
-        "$PYTHON_EXE" "$helper" download --templates "$ids" \
+        "$PYTHON_EXE" "$helper" download --skip-prepare --templates "$ids" \
         --workers "${COMFY_TEMPLATE_DOWNLOAD_WORKERS:-2}" \
         >> "$log_file" 2>&1 < /dev/null &
     info "Лог фоновой загрузки: $log_file (PID $!)"
@@ -163,10 +162,16 @@ if [[ "${COMFY_PREBUILT:-0}" == 1 ]]; then
         error "В готовом образе версии закреплены. Для обновления соберите новый image."
         exit 2
     fi
-    if ! "$PYTHON_EXE" "$SETUP_CACHE_HELPER" check \
-        --comfy-dir "$COMFY_DIR" --script-dir "$SCRIPT_DIR"; then
-        error "Окружение готового образа изменено или повреждено. Пересоздайте контейнер из image."
+    if [[ ! -f "$SETUP_STAMP" ]]; then
+        error "Отметка готового образа не найдена ($SETUP_STAMP). Пересоздайте контейнер из image."
         exit 1
+    fi
+    if [[ "${COMFY_VERIFY_ON_START:-0}" == 1 ]]; then
+        if ! "$PYTHON_EXE" "$SETUP_CACHE_HELPER" check \
+            --comfy-dir "$COMFY_DIR" --script-dir "$SCRIPT_DIR"; then
+            error "Окружение готового образа изменено или повреждено. Пересоздайте контейнер из image."
+            exit 1
+        fi
     fi
     info "Готовый Docker image: git pull и pip install при запуске не выполняются."
 else

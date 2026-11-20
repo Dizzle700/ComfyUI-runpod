@@ -462,6 +462,40 @@ PY
     fi
 }
 
+try_aria2c_download() {
+    local url=$1 target=$2
+    local target_dir target_name connections
+    local -a aria_args=()
+    command -v aria2c >/dev/null 2>&1 || return 1
+
+    target_dir=$(dirname -- "$target")
+    target_name=$(basename -- "$target")
+    connections="${COMFY_ARIA2_CONNECTIONS:-8}"
+    aria_args=(
+        --continue=true
+        --allow-overwrite=true
+        --auto-file-renaming=false
+        --file-allocation=none
+        --max-connection-per-server="$connections"
+        --split="$connections"
+        --min-split-size=4M
+        --max-tries=3
+        --retry-wait=2
+        --summary-interval=15
+        --console-log-level=warn
+        --user-agent="comfy-model-downloader/1.0"
+        --dir="$target_dir"
+        --out="$target_name"
+    )
+    if [[ "$url" == *huggingface.co* && -n "${HF_TOKEN:-}" ]]; then
+        aria_args+=(--header="Authorization: Bearer $HF_TOKEN")
+    elif [[ "$url" == *civitai.com* && -n "${CIVITAI_API_TOKEN:-}" ]]; then
+        aria_args+=(--header="Authorization: Bearer $CIVITAI_API_TOKEN")
+    fi
+
+    aria2c "${aria_args[@]}" "$url"
+}
+
 record_model_download() {
     local destination=$1 source_url=$2 folder=$3 size_bytes=$4 backend=$5
     command -v python3 >/dev/null 2>&1 || return 1
@@ -659,6 +693,18 @@ download_model() {
         average_speed=$(awk -v size="$final_size" -v seconds="${total_time:-0}" \
             'BEGIN { print (seconds > 0 ? size / seconds : size) }')
         http_code='HF Hub'
+        redirects='n/a'
+        server_filename=''
+    elif command -v aria2c >/dev/null 2>&1 && \
+        try_aria2c_download "$url" "$temp_file"; then
+        transfer_backend="aria2c (${COMFY_ARIA2_CONNECTIONS:-8}x)"
+        transfer_finished=$(date +%s)
+        total_time=$(( transfer_finished - transfer_started ))
+        final_size=$(stat -c '%s' "$temp_file")
+        transferred=$final_size
+        average_speed=$(awk -v size="$final_size" -v seconds="${total_time:-0}" \
+            'BEGIN { print (seconds > 0 ? size / seconds : size) }')
+        http_code='200'
         redirects='n/a'
         server_filename=''
     else
